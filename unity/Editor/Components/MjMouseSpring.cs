@@ -32,9 +32,9 @@ namespace Mujoco {
     private Color _translucentRed = new Color(1, 0, 0, 0.1f);
 
     public void OnDisable() {
-      // If we're still the hot control at this stage, we need to release.
-      int uniqueID = GUIUtility.GetControlID(FocusType.Passive);
-      if (GUIUtility.hotControl == uniqueID) {
+      // Release hot control if we held it. Can't call GUIUtility.GetControlID
+      // outside OnGUI, so just reset hotControl unconditionally if non-zero.
+      if (GUIUtility.hotControl != 0) {
         GUIUtility.hotControl = 0;
       }
     }
