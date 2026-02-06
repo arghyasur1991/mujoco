@@ -25,6 +25,10 @@ public class MjMeshShape : IMjShape {
   public Mesh Mesh;
 
   public void ToMjcf(XmlElement mjcf, Transform transform) {
+    if (Mesh == null) {
+      Debug.LogWarning($"MjMeshShape on '{transform.gameObject.name}' has no mesh assigned - skipping.", transform.gameObject);
+      return;
+    }
     var scene = MjScene.Instance;
     var assetName = scene.GenerationContext.AddMeshAsset(Mesh);
     mjcf.SetAttribute("mesh", assetName);

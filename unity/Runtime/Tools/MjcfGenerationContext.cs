@@ -108,6 +108,14 @@ public class MjcfGenerationContext {
   }
 
   private static void GenerateMeshMjcf(Mesh mesh, XmlElement mjcf) {
+    if (mesh == null) {
+      Debug.LogWarning("MjcfGenerationContext: Skipping null mesh during MJCF generation.");
+      return;
+    }
+    if (!mesh.isReadable) {
+      Debug.LogWarning($"MjcfGenerationContext: Mesh '{mesh.name}' is not readable. Enable Read/Write in import settings.");
+      return;
+    }
     var vertexPositionsStr = new StringBuilder();
     foreach (var unityVertex in mesh.vertices) {
       var mjVertex = MjEngineTool.MjVector3(unityVertex);
