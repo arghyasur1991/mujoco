@@ -99,10 +99,30 @@ public class MjScene : MonoBehaviour {
     DestroyScene();
   }
 
+  /// <summary>
+  /// When true, FixedUpdate skips automatic physics stepping.
+  /// Use this for RL training where the trainer explicitly calls StepScene().
+  /// </summary>
+  public bool PauseSimulation = false;
+
   protected unsafe void FixedUpdate() {
+    if (PauseSimulation) return;
     preUpdateEvent?.Invoke(this, new MjStepArgs(Model, Data));
     StepScene();
     postUpdateEvent?.Invoke(this, new MjStepArgs(Model, Data));
+  }
+
+  /// <summary>
+  /// Reset physics state to initial configuration without recreating the scene.
+  /// Much faster than RecreateScene() - suitable for RL episode resets.
+  /// Resets qpos, qvel, ctrl, and all derived quantities to their defaults.
+  /// </summary>
+  public unsafe void ResetData() {
+    if (Model == null || Data == null) return;
+    MujocoLib.mj_resetData(Model, Data);
+    MujocoLib.mj_forward(Model, Data);
+    SyncUnityToMjState();
+    postInitEvent?.Invoke(this, new MjStepArgs(Model, Data));
   }
 
   public bool SceneRecreationAtLateUpdateRequested = false;
