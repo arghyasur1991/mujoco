@@ -54,9 +54,13 @@ public class MjScene : MonoBehaviour {
     get {
       if (_instance == null) {
         var instances = FindObjectsByType<MjScene>(FindObjectsSortMode.None);
-        if (instances.Length >= 1) {
-          throw new InvalidOperationException(
-              "A MjScene singleton is created automatically, yet multiple instances exist.");
+        if (instances.Length == 1) {
+          _instance = instances[0];
+        } else if (instances.Length > 1) {
+          _instance = instances[0];
+          Debug.LogWarning(
+              $"MjScene: {instances.Length} instances found — using '{_instance.name}', " +
+              "destroy extras to silence this warning.");
         } else {
           GameObject go = new GameObject("MjScene");
           _instance = go.AddComponent<MjScene>();
@@ -72,8 +76,10 @@ public class MjScene : MonoBehaviour {
     if (_instance == null) {
       _instance = this;
     } else if (_instance != this) {
-      throw new InvalidOperationException(
-          "MjScene is a singleton, yet multiple instances found.");
+      Debug.LogWarning(
+          $"MjScene: Duplicate instance on '{gameObject.name}' — destroying. " +
+          $"Singleton is on '{_instance.gameObject.name}'.");
+      Destroy(this);
     }
   }
 
