@@ -27,9 +27,8 @@ public static class MjEngineTool {
   private const int _elementsPerPosition = 3;
   private const int _elementsPerRotation = 4;
   private const int _elementsPerTransform = 7;
+  private const int _elementsPerMatrix = 9;
   private const int _elementsPerEquality = 11;
-  private static double[] _mjQuat = new double[4];
-  private static double[] _mjMat = new double[9];
 
   public static string Sanitize(string name) {
     return name.Replace('/', '_');
@@ -104,7 +103,7 @@ public static class MjEngineTool {
 
   // Returns a pointer to an entry in the MuJoCo field that's 9*offsetEntry down the buffer.
   public static unsafe double* MjMatrixAtEntry(double* mjTarget, int offsetEntry) {
-    return mjTarget + offsetEntry * _mjMat.Length;
+    return mjTarget + offsetEntry * _elementsPerMatrix;
   }
 
   // Returns a pointer to an entry in the MuJoCo field that's 11*offsetEntry down the buffer.
@@ -166,17 +165,44 @@ public static class MjEngineTool {
     return new Quaternion(x:mjQuat.x, y:mjQuat.z, z:mjQuat.y, w:-mjQuat.w);
   }
 
-  // Converts a Mujoco matrix to a Unity quaternion.
-  // The matrix coordinates are at the 'entryIndex * 9' of the 'mjMat' array.
-  public static unsafe Quaternion UnityQuaternionFromMatrix(double* mjMat) {
-    for (var j = 0; j < _mjMat.Length; ++j) {
-      _mjMat[j] = mjMat[j];
+  // Converts a MuJoCo 3x3 rotation matrix (row-major) to a Unity quaternion.
+  // Pure C# — avoids managed→native P/Invoke transition per call.
+  public static unsafe Quaternion UnityQuaternionFromMatrix(double* m) {
+    double m00 = m[0], m01 = m[1], m02 = m[2];
+    double m10 = m[3], m11 = m[4], m12 = m[5];
+    double m20 = m[6], m21 = m[7], m22 = m[8];
+
+    double trace = m00 + m11 + m22;
+    double w, x, y, z;
+
+    if (trace > 0) {
+      double s = System.Math.Sqrt(trace + 1.0) * 2.0;
+      w = 0.25 * s;
+      x = (m21 - m12) / s;
+      y = (m02 - m20) / s;
+      z = (m10 - m01) / s;
+    } else if (m00 > m11 && m00 > m22) {
+      double s = System.Math.Sqrt(1.0 + m00 - m11 - m22) * 2.0;
+      w = (m21 - m12) / s;
+      x = 0.25 * s;
+      y = (m01 + m10) / s;
+      z = (m02 + m20) / s;
+    } else if (m11 > m22) {
+      double s = System.Math.Sqrt(1.0 + m11 - m00 - m22) * 2.0;
+      w = (m02 - m20) / s;
+      x = (m01 + m10) / s;
+      y = 0.25 * s;
+      z = (m12 + m21) / s;
+    } else {
+      double s = System.Math.Sqrt(1.0 + m22 - m00 - m11) * 2.0;
+      w = (m10 - m01) / s;
+      x = (m02 + m20) / s;
+      y = (m12 + m21) / s;
+      z = 0.25 * s;
     }
-    fixed (double* q_out = _mjQuat)
-    fixed (double* m_in = _mjMat) {
-      MujocoLib.mju_mat2Quat(q_out, m_in);
-      return UnityQuaternion(q_out);
-    }
+
+    // MuJoCo quat = [w, x, y, z], convert to Unity (swap Y/Z, negate W)
+    return new Quaternion((float)x, (float)z, (float)y, (float)-w);
   }
 
   // Converts a Unity extents Vector3 to a Mujoco extents vector.

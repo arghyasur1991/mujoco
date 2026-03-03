@@ -380,6 +380,8 @@ public class MjGlobalSettings : MonoBehaviour {
     var doc = mjcf.OwnerDocument;
     var optionMjcf = (XmlElement)mjcf.AppendChild(doc.CreateElement("option"));
     optionMjcf.SetAttribute(
+        "timestep", MjEngineTool.MakeLocaleInvariant($"{Time.fixedDeltaTime}"));
+    optionMjcf.SetAttribute(
         "gravity", MjEngineTool.Vector3ToMjcf(MjEngineTool.MjVector3(Physics.gravity)));
     GlobalOptions.ToMjcf(optionMjcf);
     var sizeMjcf = (XmlElement)mjcf.AppendChild(doc.CreateElement("size"));

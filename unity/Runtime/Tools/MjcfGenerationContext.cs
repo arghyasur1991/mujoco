@@ -87,6 +87,8 @@ public class MjcfGenerationContext {
     } else {
       var optionMjcf = (XmlElement)mjcf.AppendChild(doc.CreateElement("option"));
       optionMjcf.SetAttribute(
+          "timestep", MjEngineTool.MakeLocaleInvariant($"{Time.fixedDeltaTime}"));
+      optionMjcf.SetAttribute(
           "gravity", MjEngineTool.Vector3ToMjcf(MjEngineTool.MjVector3(Physics.gravity)));
     }
   }

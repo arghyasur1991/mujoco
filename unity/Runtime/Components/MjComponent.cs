@@ -75,21 +75,12 @@ public abstract class MjComponent : MonoBehaviour {
   // Synchronize the state of the component.
   public virtual unsafe void OnSyncState(MujocoLib.mjData_* data) {}
 
-  private bool _sceneExcludesMe = false;
-
   protected unsafe virtual void OnEnable() {
     if (MjScene.Instance == null) {
       throw new Exception("MuJoCo Scene not found");
     }
     if (MjScene.Instance.Model != null) {
-      _sceneExcludesMe = true;
-    }
-  }
-
-  protected void Update() {
-    if (_sceneExcludesMe) {
       MjScene.Instance.SceneRecreationAtLateUpdateRequested = true;
-      _sceneExcludesMe = false;
     }
   }
 
