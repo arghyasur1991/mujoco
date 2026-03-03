@@ -35,8 +35,11 @@ public class MjScene : MonoBehaviour {
   public unsafe MujocoLib.mjModel_* Model = null;
   public unsafe MujocoLib.mjData_* Data = null;
 
-  // Public and global access to the active MjSceneGenerationContext.
-  // Throws an exception if accessed when the scene is not being generated.
+  [Tooltip("Auto-computed from Time.fixedDeltaTime / model.opt.timestep after scene load.")]
+  public int SubStepsPerFixedUpdate { get; private set; } = 1;
+
+  public bool PauseSimulation = false;
+
   public MjcfGenerationContext GenerationContext {
     get {
       if (_generationContext == null) {
@@ -50,8 +53,8 @@ public class MjScene : MonoBehaviour {
   public static MjScene Instance {
     get {
       if (_instance == null) {
-        var instances = FindObjectsOfType<MjScene>();
-        if (instances.Length >= 1) { // even one is too much - _instance shouldn't have been null.
+        var instances = FindObjectsByType<MjScene>(FindObjectsSortMode.None);
+        if (instances.Length >= 1) {
           throw new InvalidOperationException(
               "A MjScene singleton is created automatically, yet multiple instances exist.");
         } else {
@@ -74,6 +77,13 @@ public class MjScene : MonoBehaviour {
     }
   }
 
+#if UNITY_EDITOR
+  [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+  static void DomainReloadReset() {
+    _instance = null;
+  }
+#endif
+
   private static MjScene _instance = null;
 
   private List<MjComponent> _orderedComponents;
@@ -94,6 +104,7 @@ public class MjScene : MonoBehaviour {
   }
 
   protected unsafe void FixedUpdate() {
+    if (PauseSimulation) return;
     preUpdateEvent?.Invoke(this, new MjStepArgs(Model, Data));
     StepScene();
     postUpdateEvent?.Invoke(this, new MjStepArgs(Model, Data));
@@ -135,7 +146,7 @@ public class MjScene : MonoBehaviour {
     // I briefly explored that approach, but decided against it. It increases the amount of code
     // on the side of the individual components. This solution allows to restrict the code in the
     // components to a bare minimum, at the expense of one extra method here.
-    var hierarchyRoots = FindObjectsOfType<MjComponent>()
+    var hierarchyRoots = FindObjectsByType<MjComponent>(FindObjectsSortMode.None)
         .Where(component => MjHierarchyTool.FindParentComponent(component) == null)
         .Select(component => component.transform)
         .Distinct();
@@ -167,8 +178,8 @@ public class MjScene : MonoBehaviour {
     }
 
     if (!skipCompile) {
-      // Compile the scene from the Mjcf.
       CompileScene(sceneMjcf, _orderedComponents);
+      ComputeSubSteps();
     }
     postInitEvent?.Invoke(this, new MjStepArgs(Model, Data));
     return sceneMjcf;
@@ -209,7 +220,7 @@ public class MjScene : MonoBehaviour {
   // 4. rehydrate the physics scene, and sync the Unity scene to it.
   public unsafe void RecreateScene() {
     // cache joint states in order to re-apply it to the new scene
-    var joints = FindObjectsOfType<MjBaseJoint>();
+    var joints = FindObjectsByType<MjBaseJoint>(FindObjectsSortMode.None);
     var positions = new Dictionary<MjBaseJoint, double[]>();
     var velocities = new Dictionary<MjBaseJoint, double[]>();
     foreach (var joint in joints) {
@@ -307,7 +318,14 @@ public class MjScene : MonoBehaviour {
     SyncUnityToMjState();
   }
 
-  // Destroys the Mujoco scene.
+  private unsafe void ComputeSubSteps() {
+    if (Model == null) return;
+    double mjTimestep = Model->opt.timestep;
+    if (mjTimestep > 0) {
+      SubStepsPerFixedUpdate = Mathf.Max(1, Mathf.RoundToInt((float)(Time.fixedDeltaTime / mjTimestep)));
+    }
+  }
+
   public unsafe void DestroyScene() {
     preDestroyEvent?.Invoke(this, new MjStepArgs(Model, Data));
     if (Model != null) {
@@ -320,21 +338,25 @@ public class MjScene : MonoBehaviour {
     }
   }
 
-  // Updates the scene and the state of Mujoco simulation.
   public unsafe void StepScene() {
     if (Model == null || Data == null) {
       throw new NullReferenceException("Failed to create Mujoco runtime.");
     }
     Profiler.BeginSample("MjStep");
     Profiler.BeginSample("MjStep.mj_step");
-    if (ctrlCallback != null){
-      MujocoLib.mj_step1(Model, Data);
-      ctrlCallback?.Invoke(this, new MjStepArgs(Model, Data));
-      MujocoLib.mj_step2(Model, Data);
+
+    if (ctrlCallback != null) {
+      for (int i = 0; i < SubStepsPerFixedUpdate; i++) {
+        MujocoLib.mj_step1(Model, Data);
+        ctrlCallback?.Invoke(this, new MjStepArgs(Model, Data));
+        MujocoLib.mj_step2(Model, Data);
+      }
+    } else {
+      for (int i = 0; i < SubStepsPerFixedUpdate; i++) {
+        MujocoLib.mj_step(Model, Data);
+      }
     }
-    else {
-      MujocoLib.mj_step(Model, Data);
-    }
+
     Profiler.EndSample(); // MjStep.mj_step
     CheckForPhysicsException();
 
