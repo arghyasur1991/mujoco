@@ -31,12 +31,13 @@ namespace Mujoco {
 
     private Color _translucentRed = new Color(1, 0, 0, 0.1f);
 
+    private int _cachedControlId = -1;
+
     public void OnDisable() {
-      // If we're still the hot control at this stage, we need to release.
-      int uniqueID = GUIUtility.GetControlID(FocusType.Passive);
-      if (GUIUtility.hotControl == uniqueID) {
+      if (_cachedControlId >= 0 && GUIUtility.hotControl == _cachedControlId) {
         GUIUtility.hotControl = 0;
       }
+      _cachedControlId = -1;
     }
 
     private void SetDragOriginAndDragPlane(Vector3 planeOrigin, Vector3 normal) {
@@ -84,8 +85,8 @@ namespace Mujoco {
 
       var currentEvent = UnityEngine.Event.current;
 
-      // Cache the hot control to determine whether we're currently capturing mouse input.
       int uniqueID = GUIUtility.GetControlID(FocusType.Passive);
+      _cachedControlId = uniqueID;
 
       // Mouse spring is active if the control key is held down and the user is dragging the
       // left mouse button, or if we're already in the process of capturing mouse input.

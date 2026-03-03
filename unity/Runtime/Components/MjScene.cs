@@ -50,8 +50,8 @@ public class MjScene : MonoBehaviour {
   public static MjScene Instance {
     get {
       if (_instance == null) {
-        var instances = FindObjectsOfType<MjScene>();
-        if (instances.Length >= 1) { // even one is too much - _instance shouldn't have been null.
+        var instances = FindObjectsByType<MjScene>(FindObjectsSortMode.None);
+        if (instances.Length >= 1) {
           throw new InvalidOperationException(
               "A MjScene singleton is created automatically, yet multiple instances exist.");
         } else {
@@ -73,6 +73,13 @@ public class MjScene : MonoBehaviour {
           "MjScene is a singleton, yet multiple instances found.");
     }
   }
+
+#if UNITY_EDITOR
+  [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+  static void DomainReloadReset() {
+    _instance = null;
+  }
+#endif
 
   private static MjScene _instance = null;
 
@@ -135,7 +142,7 @@ public class MjScene : MonoBehaviour {
     // I briefly explored that approach, but decided against it. It increases the amount of code
     // on the side of the individual components. This solution allows to restrict the code in the
     // components to a bare minimum, at the expense of one extra method here.
-    var hierarchyRoots = FindObjectsOfType<MjComponent>()
+    var hierarchyRoots = FindObjectsByType<MjComponent>(FindObjectsSortMode.None)
         .Where(component => MjHierarchyTool.FindParentComponent(component) == null)
         .Select(component => component.transform)
         .Distinct();
@@ -209,7 +216,7 @@ public class MjScene : MonoBehaviour {
   // 4. rehydrate the physics scene, and sync the Unity scene to it.
   public unsafe void RecreateScene() {
     // cache joint states in order to re-apply it to the new scene
-    var joints = FindObjectsOfType<MjBaseJoint>();
+    var joints = FindObjectsByType<MjBaseJoint>(FindObjectsSortMode.None);
     var positions = new Dictionary<MjBaseJoint, double[]>();
     var velocities = new Dictionary<MjBaseJoint, double[]>();
     foreach (var joint in joints) {
