@@ -21,6 +21,10 @@ build_cmake/
 python/dist/
 doc/_build
 
+# Unity plugin binaries (deployed by build.py, not source)
+unity/Plugins/
+unity/Plugins.meta
+
 # Exclude macOS folder attributes
 .DS_Store
 
