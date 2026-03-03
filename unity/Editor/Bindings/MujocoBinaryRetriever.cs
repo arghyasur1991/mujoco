@@ -33,32 +33,45 @@ public class MujocoBinaryRetriever {
     foreach (var packageInfo in packageRegistrationEventArgs.added) {
       if (packageInfo.name.Equals("org.mujoco")) {
         var mujocoPath = packageInfo.assetPath;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
-          if (AssetDatabase.LoadMainAssetAtPath(mujocoPath + "/mujoco.dylib") == null) {
-            File.Copy(
-                "/Applications/MuJoCo.app/Contents/Frameworks" +
-                "/mujoco.framework/Versions/Current/libmujoco.3.5.0.dylib",
-                mujocoPath + "/mujoco.dylib");
-            AssetDatabase.Refresh();
+        try {
+          if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+            if (AssetDatabase.LoadMainAssetAtPath(mujocoPath + "/mujoco.dylib") == null
+                && AssetDatabase.LoadMainAssetAtPath(mujocoPath + "/Plugins/macOS/arm64/libmujoco.dylib") == null) {
+              CopyIfExists(
+                  "/Applications/MuJoCo.app/Contents/Frameworks" +
+                  "/mujoco.framework/Versions/Current/libmujoco.3.5.0.dylib",
+                  mujocoPath + "/mujoco.dylib");
+            }
+          } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+            if (AssetDatabase.LoadMainAssetAtPath(mujocoPath + "/libmujoco.so") == null) {
+              CopyIfExists(
+                  Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
+                  "/.mujoco/mujoco-3.5.0/lib/libmujoco.so.3.5.0",
+                  mujocoPath + "/libmujoco.so");
+            }
+          } else {
+            if (AssetDatabase.LoadMainAssetAtPath(mujocoPath + "/mujoco.dll") == null) {
+              CopyIfExists(
+                  Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
+                  "\\MuJoCo\\bin\\mujoco.dll",
+                  mujocoPath + "\\mujoco.dll");
+            }
           }
-        } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
-          if (AssetDatabase.LoadMainAssetAtPath(mujocoPath + "/libmujoco.so") == null) {
-            File.Copy(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
-                "/.mujoco/mujoco-3.5.0/lib/libmujoco.so.3.5.0",
-                mujocoPath + "/libmujoco.so");
-            AssetDatabase.Refresh();
-          }
-        } else {
-          if (AssetDatabase.LoadMainAssetAtPath(mujocoPath + "/mujoco.dll") == null) {
-            File.Copy(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
-                "\\MuJoCo\\bin\\mujoco.dll",
-                mujocoPath + "\\mujoco.dll");
-            AssetDatabase.Refresh();
-          }
+        } catch (Exception e) {
+          Debug.LogWarning($"MujocoBinaryRetriever: Could not auto-copy MuJoCo native library: {e.Message}\n" +
+              "If using pip-installed mujoco, run: python build.py --setup");
         }
       }
+    }
+  }
+
+  static void CopyIfExists(string source, string dest) {
+    if (File.Exists(source)) {
+      File.Copy(source, dest);
+      AssetDatabase.Refresh();
+    } else {
+      Debug.LogWarning($"MujocoBinaryRetriever: Source not found at {source}. " +
+          "If using pip-installed mujoco, the native library should already be in Plugins/.");
     }
   }
 }
