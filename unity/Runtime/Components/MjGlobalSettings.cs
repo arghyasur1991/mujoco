@@ -121,7 +121,8 @@ public struct MjcfOptionFlag {
     mjcf.SetAttribute("frictionloss", FrictionLoss.ToString());
     mjcf.SetAttribute("limit", Limit.ToString());
     mjcf.SetAttribute("contact", Contact.ToString());
-    mjcf.SetAttribute("passive", Passive.ToString());
+    // "passive" was removed from the MJCF <flag> schema in MuJoCo 3.x
+    // mjcf.SetAttribute("passive", Passive.ToString());
     mjcf.SetAttribute("gravity", Gravity.ToString());
     mjcf.SetAttribute("clampctrl", ClampCtrl.ToString());
     mjcf.SetAttribute("warmstart", WarmStart.ToString());
@@ -378,6 +379,8 @@ public class MjGlobalSettings : MonoBehaviour {
   public void GlobalsToMjcf(XmlElement mjcf) {
     var doc = mjcf.OwnerDocument;
     var optionMjcf = (XmlElement)mjcf.AppendChild(doc.CreateElement("option"));
+    optionMjcf.SetAttribute(
+        "gravity", MjEngineTool.Vector3ToMjcf(MjEngineTool.MjVector3(Physics.gravity)));
     GlobalOptions.ToMjcf(optionMjcf);
     var sizeMjcf = (XmlElement)mjcf.AppendChild(doc.CreateElement("size"));
     GlobalSizes.ToMjcf(sizeMjcf);

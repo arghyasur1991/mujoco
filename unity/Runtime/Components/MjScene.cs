@@ -193,7 +193,14 @@ public class MjScene : MonoBehaviour {
 
   private unsafe void CompileScene(
       XmlDocument mjcf, IEnumerable<MjComponent> components) {
-    Model = MjEngineTool.LoadModelFromString(mjcf.OuterXml);
+    try {
+      Model = MjEngineTool.LoadModelFromString(mjcf.OuterXml);
+    } catch (Exception e) {
+      var dumpPath = Path.Combine(Application.temporaryCachePath, "mujoco_failed.xml");
+      SaveToFile(mjcf, dumpPath);
+      Debug.LogError($"MjScene: MuJoCo compilation failed. MJCF dumped to:\n{dumpPath}\n{e.Message}");
+      throw;
+    }
     if (Model == null) {
       throw new NullReferenceException("Model loading failed, see other errors for root cause.");
     } else {
@@ -229,8 +236,9 @@ public class MjScene : MonoBehaviour {
     var joints = FindObjectsByType<MjBaseJoint>(FindObjectsSortMode.None);
     var positions = new Dictionary<MjBaseJoint, double[]>();
     var velocities = new Dictionary<MjBaseJoint, double[]>();
+    bool hadPreviousScene = Model != null && Data != null;
     foreach (var joint in joints) {
-      if (joint.QposAddress > -1) { // newly added components shouldn't be cached
+      if (hadPreviousScene && joint.QposAddress > -1) {
         switch (Model->jnt_type[joint.MujocoId]) {
           default:
           case (int)MujocoLib.mjtJoint.mjJNT_HINGE:
@@ -270,10 +278,12 @@ public class MjScene : MonoBehaviour {
       }
     }
 
-    // update unity transforms according to qpos0, so they're ready to create the new MJCF
-    MujocoLib.mj_resetData(Model, Data);
-    MujocoLib.mj_kinematics(Model, Data);
-    SyncUnityToMjState();
+    if (hadPreviousScene) {
+      // update unity transforms according to qpos0, so they're ready to create the new MJCF
+      MujocoLib.mj_resetData(Model, Data);
+      MujocoLib.mj_kinematics(Model, Data);
+      SyncUnityToMjState();
+    }
 
     // Delete previous model, data
     DestroyScene();
