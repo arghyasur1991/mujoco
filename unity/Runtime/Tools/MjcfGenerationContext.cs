@@ -84,12 +84,14 @@ public class MjcfGenerationContext {
     var settings = MjGlobalSettings.Instance;
     if (settings) {
       settings.GlobalsToMjcf(mjcf);
+      Debug.Log($"[MjScene DIAG] MJCF generated WITH MjGlobalSettings, fixedDt={Time.fixedDeltaTime:F6}");
     } else {
       var optionMjcf = (XmlElement)mjcf.AppendChild(doc.CreateElement("option"));
       optionMjcf.SetAttribute(
           "timestep", MjEngineTool.MakeLocaleInvariant($"{Time.fixedDeltaTime}"));
       optionMjcf.SetAttribute(
           "gravity", MjEngineTool.Vector3ToMjcf(MjEngineTool.MjVector3(Physics.gravity)));
+      Debug.Log($"[MjScene DIAG] MJCF generated WITHOUT MjGlobalSettings, timestep={Time.fixedDeltaTime:F6}");
     }
   }
 
