@@ -92,6 +92,8 @@ public class MjScene : MonoBehaviour {
 
   private static MjScene _instance = null;
 
+  private float _lastDiagTime;
+  private int _fixedUpdateCount;
   private List<MjComponent> _orderedComponents;
 
   public event EventHandler<MjStepArgs> postInitEvent;
@@ -111,6 +113,16 @@ public class MjScene : MonoBehaviour {
 
   protected unsafe void FixedUpdate() {
     if (PauseSimulation) return;
+    _fixedUpdateCount++;
+    if (Time.realtimeSinceStartup - _lastDiagTime >= 5f) {
+      _lastDiagTime = Time.realtimeSinceStartup;
+      double ts = Model != null ? Model->opt.timestep : -1;
+      Debug.Log($"[MjScene DIAG] fixedDt={Time.fixedDeltaTime:F6}, " +
+                $"model.opt.timestep={ts:F6}, subSteps={SubStepsPerFixedUpdate}, " +
+                $"timeScale={Time.timeScale:F2}, " +
+                $"fixedUpdates(5s)={_fixedUpdateCount}");
+      _fixedUpdateCount = 0;
+    }
     preUpdateEvent?.Invoke(this, new MjStepArgs(Model, Data));
     StepScene();
     postUpdateEvent?.Invoke(this, new MjStepArgs(Model, Data));
@@ -340,6 +352,8 @@ public class MjScene : MonoBehaviour {
     if (mjTimestep > 0) {
       SubStepsPerFixedUpdate = Mathf.Max(1, Mathf.RoundToInt((float)(Time.fixedDeltaTime / mjTimestep)));
     }
+    Debug.Log($"MjScene.ComputeSubSteps: fixedDeltaTime={Time.fixedDeltaTime:F6}, " +
+              $"model.opt.timestep={mjTimestep:F6}, SubStepsPerFixedUpdate={SubStepsPerFixedUpdate}");
   }
 
   public unsafe void DestroyScene() {
